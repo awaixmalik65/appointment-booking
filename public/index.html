@@ -587,7 +587,6 @@ function openSetup() {
 
 function startDemo() {
   const name  = document.getElementById('s_bizName').value.trim();
-  const type  = document.getElementById('s_bizType').value.trim();
   const err   = document.getElementById('errMsg');
 
   if (!name) {
@@ -595,16 +594,11 @@ function startDemo() {
     err.textContent = 'Please enter your business name.';
     return;
   }
-  if (!groqKey && !geminiKey) {
-    err.style.display = 'block';
-    err.textContent = '⚙️ No API key set. Press Ctrl+Shift+K to add your free Groq or Gemini key.';
-    return;
-  }
   err.style.display = 'none';
 
   /* Pull all fields from the form into state */
   bizName    = name;
-  bizType    = type || 'Home Services';
+  bizType    = document.getElementById('s_bizType').value.trim() || 'Home Services';
   kb.phone    = document.getElementById('s_phone').value.trim();
   kb.area     = document.getElementById('s_area').value.trim();
   kb.hours    = document.getElementById('s_hours').value.trim();
@@ -717,17 +711,37 @@ function showTyping() {
 }
 function hideTyping() { document.getElementById('typing').classList.remove('show'); }
 
-/* ══ AI CALL ══ */
+/* ══ AI CALL ══
+   Priority order:
+   1. /api/chat  — Vercel serverless proxy (key lives on server, safe for production)
+   2. groqKey    — direct browser call (local dev only, key visible in DevTools)
+   3. geminiKey  — direct browser call (local dev only, key visible in DevTools)
+   The proxy is tried first whenever no local key is set. ══ */
 async function getReply(userMsg) {
   showTyping();
   document.getElementById('sendBtn').disabled = true;
 
   try {
     let reply = '';
-    /* Only pass actual conversation messages — no system role leaking */
     const msgs = history.map(m => ({ role: m.role, content: m.content }));
 
-    if (groqKey) {
+    /* ── MODE 1: Vercel proxy (production — keys never leave the server) ── */
+    if (!groqKey && !geminiKey) {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: msgs, systemPrompt: buildPrompt() })
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        /* If 404, the proxy file isn't deployed yet — give a helpful message */
+        if (res.status === 404) throw new Error('proxy_missing');
+        throw new Error(e.error || 'Server error ' + res.status);
+      }
+      reply = (await res.json()).reply;
+
+    /* ── MODE 2: Direct Groq (local dev — key set in GROQ_KEY_DEFAULT) ── */
+    } else if (groqKey) {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
@@ -741,24 +755,26 @@ async function getReply(userMsg) {
       if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Groq ' + res.status); }
       reply = (await res.json()).choices[0].message.content.trim();
 
-    } else if (geminiKey) {
+    /* ── MODE 3: Direct Gemini (local dev — key set in GEMINI_KEY_DEFAULT) ── */
+    } else {
       const gemMsgs = msgs.map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
       }));
-      const body = {
-        systemInstruction: { parts: [{ text: buildPrompt() }] },
-        contents: gemMsgs.length > 0 ? gemMsgs : [{ role: 'user', parts: [{ text: userMsg }] }],
-        generationConfig: { maxOutputTokens: 260, temperature: 0.6 }
-      };
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: buildPrompt() }] },
+            contents: gemMsgs.length > 0 ? gemMsgs : [{ role: 'user', parts: [{ text: userMsg }] }],
+            generationConfig: { maxOutputTokens: 260, temperature: 0.6 }
+          })
+        }
       );
       if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Gemini ' + res.status); }
       reply = (await res.json()).candidates[0].content.parts[0].text.trim();
-    } else {
-      throw new Error('no_key');
     }
 
     hideTyping();
@@ -776,10 +792,12 @@ async function getReply(userMsg) {
   } catch (e) {
     hideTyping();
     let m = 'Something went wrong — please try again.';
-    if (e.message === 'no_key')
-      m = '⚙️ No API key found. Press **Ctrl+Shift+K** to add your free key.';
+    if (e.message === 'proxy_missing')
+      m = '⚙️ API proxy not found. Make sure api/chat.js is deployed on Vercel and your environment variable is set.';
+    else if (e.message.includes('No API key configured'))
+      m = '⚙️ No API key on the server. Go to Vercel → Project → Settings → Environment Variables and add GROQ_API_KEY.';
     else if (e.message.includes('401') || e.message.toLowerCase().includes('invalid') || e.message.includes('API_KEY'))
-      m = '❌ API key rejected. Open settings (Ctrl+Shift+K) and check your key.';
+      m = '❌ API key rejected. Check the key in your Vercel environment variables.';
     else if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED'))
       m = '⏳ Rate limit hit — wait about 60 seconds and try again.';
     addBotMsg(m);
@@ -854,10 +872,6 @@ function sendMsg() {
   const inp = document.getElementById('inp');
   const txt = inp.value.trim();
   if (!txt) return;
-  if (!groqKey && !geminiKey) {
-    addBotMsg('⚙️ No API key. Press **Ctrl+Shift+K** to add your free key.');
-    return;
-  }
   clearQR();
   inp.value = ''; inp.style.height = 'auto';
   addUserMsg(txt);
@@ -986,11 +1000,12 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 4000);
 }
 
-/* ══ AUTO-INIT if keys hardcoded ══ */
+/* ══ AUTO-INIT ══
+   Show chat button immediately.
+   On Vercel: proxy handles the key (no local key needed).
+   Local dev: set GROQ_KEY_DEFAULT or GEMINI_KEY_DEFAULT above. ══ */
 window.addEventListener('load', () => {
-  if (GROQ_KEY_DEFAULT || GEMINI_KEY_DEFAULT) {
-    document.getElementById('chatBtn').style.display = 'flex';
-  }
+  document.getElementById('chatBtn').style.display = 'flex';
 });
 </script>
 </body>
