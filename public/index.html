@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>HomeAssist AI — Smart Booking Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root{
+  --bg:#07080f;--s1:#0e0f1a;--s2:#141522;--s3:#1c1d2e;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);
+  --accent:#22d3a0;--adim:rgba(34,211,160,.12);--aglow:rgba(34,211,160,.25);
+  --blue:#4f8ef7;--bdim:rgba(79,142,247,.12);
+  --red:#ff5c72;--text:#eeeef5;--muted:#6b6b8a;--muted2:#9898b8;
+  --rsm:10px;--rmd:16px;--rlg:20px;--rxl:24px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 55% at 15% 5%,rgba(34,211,160,.07) 0%,transparent 55%),radial-gradient(ellipse 50% 45% at 85% 90%,rgba(79,142,247,.07) 0%,transparent 55%);pointer-events:none;z-index:0;}
+
+/* ── HERO ── */
+.hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px 60px;text-align:center;}
+.pill{display:inline-flex;align-items:center;gap:8px;background:rgba(34,211,160,.08);border:1px solid rgba(34,211,160,.18);border-radius:100px;padding:7px 18px;font-size:11px;font-weight:500;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:32px;animation:fadeUp .6s ease both;}
+.live-dot{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:pulse 1.8s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--aglow);}50%{box-shadow:0 0 0 6px transparent;}}
+h1{font-family:'Syne',sans-serif;font-size:clamp(2.2rem,6vw,5rem);font-weight:800;line-height:1.05;letter-spacing:-.03em;margin-bottom:24px;max-width:800px;animation:fadeUp .7s .1s ease both;}
+h1 .grad{background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sub{font-size:1rem;color:var(--muted2);max-width:480px;line-height:1.75;margin-bottom:44px;font-weight:300;animation:fadeUp .7s .2s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.stats{display:flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--rxl);overflow:hidden;margin-bottom:44px;animation:fadeUp .7s .3s ease both;}
+.stat{padding:20px 28px;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;}
+.stat+.stat::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:var(--border2);}
+.stat-n{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;color:var(--accent);line-height:1;}
+.stat-l{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:fadeUp .7s .4s ease both;}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:var(--rsm);padding:15px 28px;font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.02em;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px var(--aglow);}
+.btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border2);border-radius:var(--rsm);padding:15px 24px;font-family:'DM Sans',sans-serif;font-size:.88rem;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.scroll-cue{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;}
+.scroll-arrow{animation:bounce 2s infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(5px);}}
+
+/* ── PAGE SECTIONS ── */
+.section{position:relative;z-index:1;padding:70px 20px;max-width:1100px;margin:0 auto;}
+.sec-eyebrow{text-align:center;font-size:.7rem;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;}
+.sec-title{font-family:'Syne',sans-serif;font-size:clamp(1.7rem,4vw,2.7rem);font-weight:800;text-align:center;margin-bottom:50px;letter-spacing:-.025em;}
+.steps{display:flex;position:relative;gap:0;}
+.steps::before{content:'';position:absolute;top:27px;left:calc(16.66% + 27px);right:calc(16.66% + 27px);height:1px;background:linear-gradient(90deg,var(--adim),var(--aglow),var(--adim));}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 12px;}
+.step-num{width:54px;height:54px;background:var(--s2);border:2px solid var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:var(--accent);margin-bottom:16px;flex-shrink:0;position:relative;z-index:1;}
+.step-title{font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;margin-bottom:6px;}
+.step-desc{font-size:.78rem;color:var(--muted2);line-height:1.55;}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
+.feat{background:var(--s1);border:1px solid var(--border);border-radius:var(--rmd);padding:24px;transition:all .3s;}
+.feat:hover{border-color:rgba(34,211,160,.2);transform:translateY(-3px);box-shadow:0 20px 50px rgba(0,0,0,.3);}
+.feat-icon{font-size:24px;margin-bottom:12px;display:block;}
+.feat h3{font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;margin-bottom:6px;}
+.feat p{font-size:.79rem;color:var(--muted2);line-height:1.6;}
+.niche-belt{position:relative;z-index:1;padding:0 20px 70px;text-align:center;}
+.belt-wrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;margin:0 auto 32px;}
+.tag{background:var(--s1);border:1px solid var(--border);border-radius:100px;padding:7px 18px;font-size:.79rem;color:var(--muted2);transition:all .2s;}
+.tag:hover{border-color:rgba(34,211,160,.3);color:var(--text);}
+
+/* ── SHARED OVERLAY ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);z-index:500;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.overlay.open{display:flex;}
+@keyframes popIn{from{opacity:0;transform:scale(.93);}to{opacity:1;transform:scale(1);}}
+
+/* ── CLIENT SETUP POPUP ── */
+.setup-card{background:var(--s2);border:1px solid var(--border2);border-radius:var(--rxl);padding:28px;width:100%;max-width:520px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;margin:auto;}
+.setup-card h2{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:4px;}
+.setup-card .hint{color:var(--muted2);font-size:.8rem;line-height:1.6;margin-bottom:20px;}
+.lbl{font-size:.69rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;display:block;}
+.inp{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);padding:11px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none;transition:border-color .2s;margin-bottom:14px;}
+.inp:focus{border-color:var(--accent);}
+.inp::placeholder{color:var(--muted);opacity:.45;}
+textarea.inp{resize:vertical;min-height:80px;line-height:1.55;margin-bottom:14px;}
+.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.err{background:rgba(255,92,114,.1);border:1px solid rgba(255,92,114,.25);border-radius:8px;padding:9px 13px;font-size:.78rem;color:var(--red);margin-bottom:12px;display:none;}
+.setup-footer{font-size:.7rem;color:var(--muted);text-align:center;margin-top:10px;}
+.setup-section{font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--border);}
+.setup-section:first-of-type{border-top:none;margin-top:0;padding-top:0;}
+
+/* ── ADMIN PANEL ── */
+.admin-card{background:var(--s2);border:1px solid var(--border2);border-radius:var(--rxl);width:100%;max-width:600px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;display:flex;flex-direction:column;overflow:hidden;margin:auto;max-height:90vh;}
+.admin-head{padding:20px 24px 16px;background:var(--s3);border-bottom:1px solid var(--border);flex-shrink:0;}
+.admin-head h2{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:3px;}
+.admin-head p{font-size:.76rem;color:var(--muted2);}
+.admin-body{padding:20px 24px;overflow-y:auto;flex:1;}
+.admin-sec{margin-bottom:18px;}
+.admin-sec-title{font-family:'Syne',sans-serif;font-size:.74rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;}
+.kb-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.kb-inp{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;outline:none;transition:border-color .2s;}
+.kb-inp:focus{border-color:var(--accent);}
+.kb-inp::placeholder{color:var(--muted);opacity:.4;}
+.kb-ta{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);padding:11px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.8rem;outline:none;resize:vertical;min-height:95px;line-height:1.65;transition:border-color .2s;}
+.kb-ta:focus{border-color:var(--accent);}
+.kb-ta::placeholder{color:var(--muted);opacity:.38;font-size:.77rem;}
+.kb-lbl{font-size:.68rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;display:block;}
+.admin-foot{padding:14px 24px;background:var(--s3);border-top:1px solid var(--border);display:flex;gap:9px;flex-shrink:0;}
+.btn-save{flex:1;background:var(--accent);color:#000;border:none;border-radius:var(--rsm);padding:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:.86rem;cursor:pointer;transition:opacity .2s;}
+.btn-save:hover{opacity:.88;}
+.btn-cancel{background:transparent;color:var(--muted2);border:1px solid var(--border2);border-radius:var(--rsm);padding:12px 16px;font-family:'DM Sans',sans-serif;font-size:.86rem;cursor:pointer;transition:all .2s;}
+.btn-cancel:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── SHORTCUT HINT ── */
+.sc-hint{position:fixed;bottom:104px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:7px 14px;font-size:.7rem;color:var(--muted2);z-index:200;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .5s;}
+.sc-hint.show{opacity:1;}
+
+/* ── CHAT BUTTON ── */
+.chat-btn{position:fixed;bottom:24px;right:20px;width:58px;height:58px;background:var(--accent);border:none;border-radius:50%;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 28px var(--aglow);transition:all .25s;z-index:300;}
+.chat-btn:hover{transform:scale(1.08);}
+.chat-btn .ic-chat{display:flex;}.chat-btn .ic-x{display:none;}
+.chat-btn.open .ic-chat{display:none;}.chat-btn.open .ic-x{display:flex;}
+
+/* ── CHAT WINDOW ── */
+.chat-win{
+  position:fixed;bottom:92px;right:20px;
+  width:360px;max-width:calc(100vw - 24px);
+  height:560px;max-height:calc(100vh - 110px);
+  background:var(--s1);border:1px solid var(--border2);border-radius:var(--rxl);
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 24px 70px rgba(0,0,0,.7);z-index:299;
+  transform:scale(.9) translateY(20px);opacity:0;pointer-events:none;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  transform-origin:bottom right;
+}
+.chat-win.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
+.ch-head{padding:14px 16px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.ch-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-size:16px;}
+.ch-info{flex:1;min-width:0;}
+.ch-name{font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ch-status{font-size:.68rem;color:var(--accent);display:flex;align-items:center;gap:4px;}
+.s-dot{width:5px;height:5px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+.ai-tag{font-size:.6rem;color:var(--muted);background:rgba(255,255,255,.05);border-radius:5px;padding:3px 6px;flex-shrink:0;}
+.reset-btn{background:none;border:none;color:var(--muted);font-size:.68rem;cursor:pointer;padding:4px 6px;border-radius:5px;transition:color .2s;flex-shrink:0;}
+.reset-btn:hover{color:var(--text);}
+.ch-msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;}
+.ch-msgs::-webkit-scrollbar{width:3px;}
+.ch-msgs::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.msg{display:flex;gap:7px;max-width:92%;animation:msgPop .2s ease both;}
+@keyframes msgPop{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.msg.bot{align-self:flex-start;}.msg.user{align-self:flex-end;flex-direction:row-reverse;}
+.m-av{width:25px;height:25px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:2px;}
+.msg.bot .m-av{background:linear-gradient(135deg,var(--accent),var(--blue));}.msg.user .m-av{background:#2d2a4a;}
+.m-bub{padding:9px 13px;border-radius:13px;font-size:.82rem;line-height:1.55;word-break:break-word;}
+.msg.bot .m-bub{background:var(--s2);border:1px solid var(--border);border-bottom-left-radius:3px;}
+.msg.user .m-bub{background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.18);border-bottom-right-radius:3px;}
+.typing{display:none;align-self:flex-start;background:var(--s2);border:1px solid var(--border);border-radius:13px;border-bottom-left-radius:3px;padding:11px 14px;gap:5px;align-items:center;}
+.typing.show{display:flex;}
+.td{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:tdA 1.2s infinite;}
+.td:nth-child(2){animation-delay:.2s;}.td:nth-child(3){animation-delay:.4s;}
+@keyframes tdA{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-5px);opacity:1;}}
+.qr-area{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 7px;flex-shrink:0;}
+.qr{background:transparent;border:1px solid rgba(34,211,160,.25);border-radius:20px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:.75rem;color:var(--accent);cursor:pointer;transition:all .15s;}
+.qr:hover{background:var(--adim);border-color:var(--accent);}
+.ch-inp-wrap{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:var(--s2);}
+.ch-inp{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.82rem;outline:none;resize:none;max-height:80px;transition:border-color .2s;line-height:1.4;}
+.ch-inp:focus{border-color:var(--accent);}
+.ch-inp::placeholder{color:var(--muted);opacity:.45;}
+.send{width:35px;height:35px;background:var(--accent);border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+.send:hover{opacity:.85;transform:scale(1.05);}.send:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+
+/* ── CALENDAR OVERLAY ── */
+.cal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:400;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.cal-overlay.open{display:flex;}
+.cal-card{background:var(--s2);border:1px solid var(--border2);border-radius:var(--rxl);width:100%;max-width:380px;box-shadow:0 32px 80px rgba(0,0,0,.7);overflow:hidden;animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;margin:auto;}
+.cal-head{padding:16px 20px;background:var(--s3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.cal-head-icon{width:36px;height:36px;border-radius:9px;background:var(--adim);border:1px solid rgba(34,211,160,.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.cal-head-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;display:block;}
+.cal-body{padding:16px 18px;}
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.month-label{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;}
+.month-arr{background:none;border:1px solid var(--border2);border-radius:6px;width:28px;height:28px;color:var(--muted2);cursor:pointer;font-size:14px;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.month-arr:hover{border-color:var(--accent);color:var(--accent);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:16px;}
+.cal-day-head{text-align:center;font-size:.62rem;color:var(--muted);padding:3px 0;text-transform:uppercase;letter-spacing:.04em;}
+.cal-day{aspect-ratio:1;border-radius:7px;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:.79rem;cursor:pointer;color:var(--muted2);transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.cal-day:hover:not(.empty):not(.past){background:var(--adim);color:var(--accent);}
+.cal-day.today{color:var(--accent);font-weight:700;}
+.cal-day.selected{background:var(--accent);color:#000;font-weight:700;}
+.cal-day.past{opacity:.25;cursor:default;}.cal-day.empty{cursor:default;}
+.time-label{font-family:'Syne',sans-serif;font-size:.74rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;}
+.time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px;}
+.time-slot{background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 4px;font-family:'DM Sans',sans-serif;font-size:.77rem;color:var(--muted2);cursor:pointer;text-align:center;transition:all .15s;}
+.time-slot:hover{border-color:var(--accent);color:var(--accent);background:var(--adim);}
+.time-slot.selected{background:var(--adim);border-color:var(--accent);color:var(--accent);font-weight:500;}
+.time-slot.booked{opacity:.3;cursor:default;text-decoration:line-through;}
+.cal-confirm-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:9px;padding:13px;font-family:'Syne',sans-serif;font-weight:700;font-size:.86rem;cursor:pointer;transition:all .2s;}
+.cal-confirm-btn:hover:not(:disabled){opacity:.88;}.cal-confirm-btn:disabled{opacity:.32;cursor:not-allowed;}
+.cal-cancel{display:block;text-align:center;margin-top:9px;font-size:.75rem;color:var(--muted);cursor:pointer;padding:6px;}
+.cal-cancel:hover{color:var(--text);}
+
+/* ── EMAIL NOTIFICATION ── */
+.email-notif{position:fixed;bottom:24px;left:16px;width:300px;max-width:calc(100vw - 32px);background:var(--s2);border:1px solid var(--border2);border-radius:var(--rlg);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);z-index:350;transform:translateX(calc(-100% - 30px));transition:transform .45s cubic-bezier(.34,1.2,.64,1);}
+.email-notif.show{transform:translateX(0);}
+.en-head{background:var(--s3);padding:12px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border);}
+.en-icon{width:30px;height:30px;border-radius:7px;background:var(--bdim);border:1px solid rgba(79,142,247,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.en-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.79rem;display:block;}
+.en-sub{font-size:.68rem;color:var(--muted2);}
+.en-close{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+.en-close:hover{color:var(--text);}
+.en-body{padding:12px 14px;}
+.en-row{display:flex;gap:7px;margin-bottom:7px;font-size:.75rem;}
+.en-field{color:var(--muted);min-width:54px;flex-shrink:0;}.en-val{color:var(--text);font-weight:500;font-size:.74rem;word-break:break-word;}
+.en-divider{height:1px;background:var(--border);margin:9px 0;}
+.en-summary{font-size:.72rem;color:var(--muted2);line-height:1.5;}
+.en-footer{padding:9px 14px;background:var(--s3);display:flex;align-items:center;gap:7px;border-top:1px solid var(--border);}
+.en-sent-badge{background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.2);border-radius:5px;padding:3px 9px;font-size:.65rem;color:var(--accent);letter-spacing:.05em;}
+.en-time{font-size:.65rem;color:var(--muted);margin-left:auto;}
+
+/* ── BOOKING CARD ── */
+.booking-card{background:rgba(34,211,160,.06);border:1px solid rgba(34,211,160,.18);border-radius:11px;padding:13px;margin-top:4px;font-size:.79rem;}
+.bc-title{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);margin-bottom:9px;font-size:.85rem;}
+.bc-row{display:flex;gap:7px;margin-bottom:5px;align-items:flex-start;}
+.bc-ic{width:15px;flex-shrink:0;text-align:center;font-size:.85rem;}
+.bc-txt{color:var(--text);font-size:.79rem;word-break:break-word;}
+.bc-note{font-size:.7rem;color:var(--muted2);margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);}
+
+/* ── TOAST ── */
+.toast{position:fixed;top:20px;right:16px;max-width:calc(100vw - 32px);background:var(--s2);border:1px solid rgba(34,211,160,.2);border-radius:var(--rsm);padding:10px 14px;font-size:.78rem;color:var(--text);display:flex;align-items:center;gap:9px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:600;transform:translateY(-70px);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .stats{flex-direction:column;}
+  .stat+.stat::before{top:0;left:20%;right:20%;width:auto;height:1px;}
+  .steps{flex-direction:column;gap:24px;}
+  .steps::before{display:none;}
+  .step{flex-direction:row;text-align:left;gap:14px;}
+  .step-num{flex-shrink:0;margin-bottom:0;width:44px;height:44px;}
+  .inp-row{grid-template-columns:1fr;}
+  .kb-row{grid-template-columns:1fr;}
+}
+@media(max-width:480px){
+  .chat-win{right:8px;left:8px;width:auto;bottom:86px;height:calc(100vh - 100px);max-height:none;border-radius:18px;}
+  .chat-btn{right:14px;bottom:16px;width:52px;height:52px;}
+  .cal-overlay{padding:10px;}
+  .cal-card{border-radius:18px;}
+  .cal-body{padding:14px;}
+  .time-grid{grid-template-columns:repeat(3,1fr);}
+  .email-notif{left:10px;right:10px;width:auto;bottom:16px;}
+  .setup-card{padding:20px;}
+  .admin-card{max-height:95vh;}
+  .toast{right:10px;}
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="pill"><span class="live-dot"></span>Interactive Demo — Real AI</div>
+  <h1>Stop Losing Jobs to<br><span class="grad">Missed Calls</span></h1>
+  <p class="sub">Your AI agent answers every inquiry instantly, qualifies the lead, collects the address, books the slot, and emails you — all while you're on the job.</p>
+  <div class="stats">
+    <div class="stat"><span class="stat-n">80%</span><span class="stat-l">Hang up on voicemail</span></div>
+    <div class="stat"><span class="stat-n">$126K</span><span class="stat-l">Lost/yr to missed calls</span></div>
+    <div class="stat"><span class="stat-n">391%</span><span class="stat-l">More leads in &lt;1 min</span></div>
+  </div>
+  <div class="cta-row">
+    <button class="btn-primary" onclick="openSetup()">▶ Launch the Demo</button>
+    <button class="btn-ghost" onclick="document.querySelector('.section').scrollIntoView({behavior:'smooth'})">See how it works ↓</button>
+  </div>
+  <div class="scroll-cue"><span>scroll</span><span class="scroll-arrow">↓</span></div>
+</section>
+
+<!-- HOW IT WORKS -->
+<div class="section">
+  <p class="sec-eyebrow">The full flow</p>
+  <h2 class="sec-title">From visitor to booked job in 90 seconds</h2>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div><div class="step-title">Visitor arrives</div><div class="step-desc">Chat widget greets them — no waiting, no voicemail.</div></div></div>
+    <div class="step"><div class="step-num">2</div><div><div class="step-title">AI qualifies</div><div class="step-desc">Asks about service type, urgency, and location.</div></div></div>
+    <div class="step"><div class="step-num">3</div><div><div class="step-title">Collects details</div><div class="step-desc">Gets name, phone, and service address.</div></div></div>
+    <div class="step"><div class="step-num">4</div><div><div class="step-title">Books the slot</div><div class="step-desc">Calendar opens — visitor picks date and time.</div></div></div>
+    <div class="step"><div class="step-num">5</div><div><div class="step-title">You get notified</div><div class="step-desc">Email with full lead details hits your inbox instantly.</div></div></div>
+    <div class="step"><div class="step-num">6</div><div><div class="step-title">Job confirmed</div><div class="step-desc">Customer gets confirmation. You show up. You get paid.</div></div></div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="section" style="padding-top:0">
+  <div class="feat-grid">
+    <div class="feat"><span class="feat-icon">⚡</span><h3>Instant 24/7 Response</h3><p>Midnight pipe burst? 3am lockout? The AI answers immediately, every time.</p></div>
+    <div class="feat"><span class="feat-icon">🎯</span><h3>Smart Lead Qualification</h3><p>Asks the right questions so you only spend time on real, ready-to-book customers.</p></div>
+    <div class="feat"><span class="feat-icon">📅</span><h3>Live Calendar Booking</h3><p>Customers pick directly from your available slots. No phone tag needed.</p></div>
+    <div class="feat"><span class="feat-icon">📧</span><h3>Instant Email Alerts</h3><p>Full lead summary — name, phone, address, issue — hits your inbox instantly.</p></div>
+    <div class="feat"><span class="feat-icon">🧠</span><h3>Trained on Your Business</h3><p>Knows your services, pricing range, area, and how to handle objections.</p></div>
+    <div class="feat"><span class="feat-icon">🔌</span><h3>One-Line Embed</h3><p>Works on WordPress, Wix, Squarespace, or any custom site.</p></div>
+  </div>
+</div>
+
+<!-- NICHES -->
+<div class="niche-belt">
+  <p class="sec-eyebrow">Works for</p>
+  <h2 class="sec-title" style="margin-bottom:24px">Every home service business</h2>
+  <div class="belt-wrap">
+    <span class="tag">🔧 Plumbers</span><span class="tag">⚡ Electricians</span>
+    <span class="tag">🧹 Cleaning Services</span><span class="tag">🔑 Locksmiths</span>
+    <span class="tag">🏠 Real Estate</span><span class="tag">🌿 Landscapers</span>
+    <span class="tag">❄️ HVAC</span><span class="tag">🛠️ Contractors</span>
+    <span class="tag">🐛 Pest Control</span><span class="tag">🪟 Window Cleaning</span>
+    <span class="tag">🚿 Bathroom Remodels</span><span class="tag">🏗️ Roofing</span>
+  </div>
+  <button class="btn-primary" onclick="openSetup()">Try the Live Demo →</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     CLIENT SETUP POPUP
+     Clients fill in their business info here.
+     No website scan — clean and simple.
+══════════════════════════════════════ -->
+<div class="overlay" id="setupOverlay">
+  <div class="setup-card">
+    <h2>👋 Set Up Your Demo</h2>
+    <p class="hint">Fill in your business details below. The AI will use this to answer your customers exactly as you would.</p>
+    <div class="err" id="errMsg"></div>
+
+    <div class="setup-section">Business Info</div>
+    <div class="inp-row">
+      <div>
+        <label class="lbl">Business Name *</label>
+        <input type="text" class="inp" id="s_bizName" placeholder="e.g. Mike's Plumbing" />
+      </div>
+      <div>
+        <label class="lbl">Service Type *</label>
+        <input type="text" class="inp" id="s_bizType" placeholder="e.g. Plumbing" />
+      </div>
+    </div>
+    <div class="inp-row">
+      <div>
+        <label class="lbl">Your Phone Number</label>
+        <input type="tel" class="inp" id="s_phone" placeholder="(555) 123-4567" />
+      </div>
+      <div>
+        <label class="lbl">Service Area</label>
+        <input type="text" class="inp" id="s_area" placeholder="e.g. Dallas TX + 30 miles" />
+      </div>
+    </div>
+    <div class="inp-row">
+      <div>
+        <label class="lbl">Working Hours</label>
+        <input type="text" class="inp" id="s_hours" placeholder="Mon–Sat 7am–7pm" />
+      </div>
+      <div>
+        <label class="lbl">Notification Email</label>
+        <input type="email" class="inp" id="s_email" placeholder="you@business.com" />
+      </div>
+    </div>
+
+    <div class="setup-section">Services &amp; Pricing</div>
+    <label class="lbl">Services You Offer</label>
+    <textarea class="inp" id="s_services" placeholder="List your main services, one per line:
+- Emergency pipe repair
+- Water heater installation
+- Drain cleaning
+- Toilet repair and replacement"></textarea>
+
+    <label class="lbl">Pricing Guidance <span style="color:var(--muted);font-size:.65rem;text-transform:none;letter-spacing:0">(AI will never quote exact prices — only ranges)</span></label>
+    <textarea class="inp" id="s_pricing" placeholder="e.g.:
+- Service call fee: $75–$100
+- Minor repairs: $120–$250
+- Water heater replacement: $800–$1,500
+- Emergency surcharge: +$50–$100"></textarea>
+
+    <div class="setup-section">Optional</div>
+    <label class="lbl">Common Questions &amp; Answers</label>
+    <textarea class="inp" id="s_faqs" placeholder="Q: Do you offer free estimates?
+A: Yes, free for jobs over $300.
+
+Q: How fast can you arrive?
+A: Usually within 60–90 minutes for emergencies." style="min-height:90px"></textarea>
+
+    <button class="btn-primary" style="width:100%;margin-top:6px" onclick="startDemo()">Launch Demo →</button>
+    <p class="setup-footer">Your info is only used to power this demo. Nothing is stored or shared.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     ADMIN PANEL — Ctrl+Shift+K
+     For you (the developer) to manage API keys
+     and update KB without showing clients.
+══════════════════════════════════════ -->
+<div class="overlay" id="adminOverlay">
+  <div class="admin-card">
+    <div class="admin-head">
+      <h2>🔑 Developer Settings</h2>
+      <p>API keys and advanced knowledge base. Press Ctrl+Shift+K to open. Clients never see this.</p>
+    </div>
+    <div class="admin-body">
+      <div class="admin-sec">
+        <div class="admin-sec-title">API Keys (free — no credit card)</div>
+        <div class="kb-row">
+          <div><label class="kb-lbl">Groq Key — console.groq.com</label><input type="password" class="kb-inp" id="kb_groq" placeholder="gsk_..." /></div>
+          <div><label class="kb-lbl">Gemini Key — aistudio.google.com/apikey</label><input type="password" class="kb-inp" id="kb_gem" placeholder="AIza..." /></div>
+        </div>
+        <p style="font-size:.69rem;color:var(--muted)">Groq used first. Gemini as fallback. Keys stay in your browser only.</p>
+      </div>
+      <div class="admin-sec">
+        <div class="admin-sec-title">Extra Instructions</div>
+        <label class="kb-lbl">Rules the AI must always follow</label>
+        <textarea class="kb-ta" id="kb_extra" placeholder="e.g.:
+- Never mention competitors
+- Offer 10% discount to returning customers
+- We do NOT service mobile homes
+- Always mention our satisfaction guarantee"></textarea>
+      </div>
+    </div>
+    <div class="admin-foot">
+      <button class="btn-save" onclick="saveAdmin()">✓ Save</button>
+      <button class="btn-cancel" onclick="closeAdmin()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHORTCUT HINT -->
+<div class="sc-hint" id="scHint">⚙️ Developer settings: Ctrl+Shift+K</div>
+
+<!-- CALENDAR -->
+<div class="cal-overlay" id="calOverlay">
+  <div class="cal-card">
+    <div class="cal-head">
+      <div class="cal-head-icon">📅</div>
+      <div>
+        <span class="cal-head-title">Book Your Appointment</span>
+        <span style="font-size:.71rem;color:var(--muted2);display:block">Pick a date and time that works</span>
+      </div>
+    </div>
+    <div class="cal-body">
+      <div class="month-nav">
+        <button class="month-arr" onclick="prevMonth()">‹</button>
+        <span class="month-label" id="monthLabel"></span>
+        <button class="month-arr" onclick="nextMonth()">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="time-label">Available Times</div>
+      <div class="time-grid" id="timeGrid"></div>
+      <button class="cal-confirm-btn" id="calConfirmBtn" onclick="confirmBooking()" disabled>Confirm Appointment →</button>
+      <span class="cal-cancel" onclick="closeCalendar()">Cancel</span>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL NOTIFICATION -->
+<div class="email-notif" id="emailNotif">
+  <div class="en-head">
+    <div class="en-icon">📧</div>
+    <div>
+      <span class="en-title">New Booking Confirmed</span>
+      <span class="en-sub">Sent to <span id="enToEmail">owner@business.com</span></span>
+    </div>
+    <button class="en-close" onclick="closeEmail()">×</button>
+  </div>
+  <div class="en-body">
+    <div class="en-row"><span class="en-field">From:</span><span class="en-val">AI Booking Agent</span></div>
+    <div class="en-row"><span class="en-field">To:</span><span class="en-val" id="enTo"></span></div>
+    <div class="en-row"><span class="en-field">Subject:</span><span class="en-val" id="enSubject"></span></div>
+    <div class="en-divider"></div>
+    <div class="en-summary" id="enSummary"></div>
+  </div>
+  <div class="en-footer">
+    <span class="en-sent-badge">✓ DELIVERED</span>
+    <span class="en-time">just now</span>
+  </div>
+</div>
+
+<!-- CHAT BUTTON -->
+<button class="chat-btn" id="chatBtn" onclick="toggleChat()">
+  <span class="ic-chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+  <span class="ic-x"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+</button>
+
+<!-- CHAT WINDOW -->
+<div class="chat-win" id="chatWin">
+  <div class="ch-head">
+    <div class="ch-av">🤖</div>
+    <div class="ch-info">
+      <span class="ch-name" id="agentLabel">HomeAssist AI</span>
+      <span class="ch-status"><span class="s-dot"></span>Online — Ready to help</span>
+    </div>
+    <span class="ai-tag" id="aiTag">AI</span>
+    <button class="reset-btn" onclick="resetChat()">↺ Reset</button>
+  </div>
+  <div class="ch-msgs" id="msgs">
+    <div class="typing" id="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>
+  </div>
+  <div class="qr-area" id="qrArea"></div>
+  <div class="ch-inp-wrap">
+    <textarea class="ch-inp" id="inp" rows="1" placeholder="Type your message…" onkeydown="handleKey(event)" oninput="grow(this)"></textarea>
+    <button class="send" id="sendBtn" onclick="sendMsg()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastTxt">Done!</span></div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   API KEYS — paste your keys here once.
+   These are only safe for LOCAL development.
+   For the live Vercel deployment, leave these EMPTY
+   and use the api/chat.js proxy instead (see README).
+   Groq  (free): console.groq.com      → gsk_...
+   Gemini(free): aistudio.google.com/apikey → AIza...
+══════════════════════════════════════════════════ */
+const GROQ_KEY_DEFAULT   = '';
+const GEMINI_KEY_DEFAULT = '';
+
+/* ── RUNTIME STATE ── */
+let groqKey    = GROQ_KEY_DEFAULT;
+let geminiKey  = GEMINI_KEY_DEFAULT;
+let bizName    = 'HomeAssist';
+let bizType    = 'Home Services';
+let ownerEmail = 'owner@business.com';
+let extraRules = '';
+
+/* Lead data — collected during chat */
+let history      = [];
+let leadData     = { name:'', phone:'', address:'', service:'', issue:'' };
+let leadCaptured = false;
+
+/* KB populated from setup popup */
+let kb = { phone:'', area:'', hours:'', services:'', pricing:'', faqs:'' };
+
+/* Calendar */
+let calYear, calMonth, selDate=null, selTime=null;
+const TIMES  = ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
+const BOOKED = ['9:00 AM','1:00 PM'];
+
+/* ══ SYSTEM PROMPT ══ */
+function buildPrompt() {
+  const lines = [];
+  if (kb.phone)    lines.push('Business phone: ' + kb.phone);
+  if (kb.area)     lines.push('Service area: ' + kb.area);
+  if (kb.hours)    lines.push('Business hours: ' + kb.hours);
+  if (kb.services) lines.push('Services offered:\n' + kb.services);
+  if (kb.pricing)  lines.push('Pricing guidance (always use approximate ranges, never exact figures):\n' + kb.pricing);
+  if (kb.faqs)     lines.push('Common questions and correct answers:\n' + kb.faqs);
+  if (extraRules)  lines.push('Extra rules to follow strictly:\n' + extraRules);
+  const kbBlock = lines.length > 0 ? '== BUSINESS KNOWLEDGE BASE ==\n' + lines.join('\n\n') + '\n\n' : '';
+
+  return `You are Aria, a warm and professional booking assistant for "${bizName}", a ${bizType} business.
+
+${kbBlock}== YOUR GOAL ==
+Help this visitor get their issue handled. Qualify their request and collect name, phone, and service address so the team can attend. Then show them the booking calendar.
+
+== STRICT CONVERSATION ORDER ==
+Step 1 — Greet warmly. Ask what they need help with today.
+Step 2 — Listen. If it is an emergency (flooding, no power, locked out, gas leak) acknowledge the urgency FIRST and reassure them, then ask one clarifying question about the problem.
+Step 3 — Ask for their first name. Use it from this point on.
+Step 4 — Ask for their best phone number.
+Step 5 — Ask for the service address (where should the team come to?). This is required so the technician knows where to go.
+Step 6 — Once you have name, phone, AND address, include this exact phrase in your reply: "I have all your details noted." — then tell them you are pulling up the calendar.
+
+== STRICT ANTI-HALLUCINATION RULES ==
+- ONLY answer using information in the knowledge base above. Do NOT invent anything.
+- If you do not know something, say: "I'll have a member of the team confirm that when they call you."
+- Never invent prices, arrival times, technician names, or guarantees not listed above.
+- If asked about a service not listed, say: "Let me get someone from the team to call you about that."
+
+== CONVERSATION RULES ==
+- Maximum 2–3 short sentences per reply. This is a chat widget.
+- Ask only ONE question per message. Never stack two questions.
+- Sound like a warm, real human receptionist — not a robot, not corporate.
+- Use the customer's first name naturally once you know it.
+- One emoji per message max. Zero during emergencies.
+- Lead with empathy if the customer sounds frustrated or anxious.
+- Never say "As an AI" or mention you are a bot — you are Aria, part of the team.
+
+== CURRENT LEAD STATUS ==
+Customer name: ${leadData.name || 'not yet collected'}
+Phone: ${leadData.phone || 'not yet collected'}
+Address: ${leadData.address || 'not yet collected'}
+Issue: ${leadData.issue || 'not yet described'}`;
+}
+
+/* ══ SETUP POPUP ══ */
+function openSetup() {
+  document.getElementById('setupOverlay').classList.add('open');
+}
+
+function startDemo() {
+  const name  = document.getElementById('s_bizName').value.trim();
+  const type  = document.getElementById('s_bizType').value.trim();
+  const err   = document.getElementById('errMsg');
+
+  if (!name) {
+    err.style.display = 'block';
+    err.textContent = 'Please enter your business name.';
+    return;
+  }
+  if (!groqKey && !geminiKey) {
+    err.style.display = 'block';
+    err.textContent = '⚙️ No API key set. Press Ctrl+Shift+K to add your free Groq or Gemini key.';
+    return;
+  }
+  err.style.display = 'none';
+
+  /* Pull all fields from the form into state */
+  bizName    = name;
+  bizType    = type || 'Home Services';
+  kb.phone    = document.getElementById('s_phone').value.trim();
+  kb.area     = document.getElementById('s_area').value.trim();
+  kb.hours    = document.getElementById('s_hours').value.trim();
+  kb.services = document.getElementById('s_services').value.trim();
+  kb.pricing  = document.getElementById('s_pricing').value.trim();
+  kb.faqs     = document.getElementById('s_faqs').value.trim();
+  ownerEmail  = document.getElementById('s_email').value.trim() || 'owner@business.com';
+
+  document.getElementById('agentLabel').textContent = bizName + ' AI';
+  document.getElementById('aiTag').textContent = groqKey ? 'Groq AI' : 'Gemini AI';
+  document.getElementById('setupOverlay').classList.remove('open');
+  document.getElementById('chatBtn').style.display = 'flex';
+  toggleChat();
+  setTimeout(greet, 600);
+}
+
+/* ══ ADMIN PANEL (developer only) ══ */
+function openAdmin() {
+  document.getElementById('kb_groq').value  = groqKey;
+  document.getElementById('kb_gem').value   = geminiKey;
+  document.getElementById('kb_extra').value = extraRules;
+  document.getElementById('adminOverlay').classList.add('open');
+}
+function closeAdmin() { document.getElementById('adminOverlay').classList.remove('open'); }
+
+function saveAdmin() {
+  const gk = document.getElementById('kb_groq').value.trim();
+  const mk = document.getElementById('kb_gem').value.trim();
+  if (gk) groqKey   = gk;
+  if (mk) geminiKey = mk;
+  extraRules = document.getElementById('kb_extra').value.trim();
+  document.getElementById('aiTag').textContent = groqKey ? 'Groq AI' : (geminiKey ? 'Gemini AI' : 'AI');
+  closeAdmin();
+  showToast('✅ Settings saved');
+}
+
+/* Keyboard shortcut Ctrl+Shift+K */
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'K') { e.preventDefault(); openAdmin(); }
+});
+
+/* Show hint after 3s */
+setTimeout(() => {
+  const h = document.getElementById('scHint');
+  h.classList.add('show');
+  setTimeout(() => h.classList.remove('show'), 4000);
+}, 3000);
+
+/* ══ CHAT ══ */
+function toggleChat() {
+  document.getElementById('chatWin').classList.toggle('open');
+  document.getElementById('chatBtn').classList.toggle('open');
+}
+
+function greet() {
+  addBotMsg(`Hi there! 👋 Welcome to **${bizName}**. I'm Aria, here to help.\n\nWhat can I help you with today?`);
+  setQR(['🚨 Emergency / Urgent', '📅 Book a service', '💬 Get a quote', '❓ General question']);
+}
+
+function setQR(items) {
+  const a = document.getElementById('qrArea');
+  a.innerHTML = '';
+  items.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'qr'; b.textContent = r;
+    b.onclick = () => { clearQR(); addUserMsg(r); getReply(r); };
+    a.appendChild(b);
+  });
+}
+function clearQR() { document.getElementById('qrArea').innerHTML = ''; }
+
+/* addBotMsg and addUserMsg are separate so extractLeadData
+   only runs on USER messages — this fixes the "Aria" name bug */
+function addBotMsg(text, extra) {
+  const c = document.getElementById('msgs');
+  const typing = document.getElementById('typing');
+  const div = document.createElement('div'); div.className = 'msg bot';
+  const av  = document.createElement('div'); av.className = 'm-av'; av.textContent = '🤖';
+  const bub = document.createElement('div'); bub.className = 'm-bub';
+  bub.innerHTML = fmt(text);
+  if (extra) bub.appendChild(extra);
+  div.appendChild(av); div.appendChild(bub);
+  c.insertBefore(div, typing);
+  c.scrollTop = c.scrollHeight;
+  history.push({ role: 'assistant', content: text });
+}
+
+function addUserMsg(text) {
+  const c = document.getElementById('msgs');
+  const typing = document.getElementById('typing');
+  const div = document.createElement('div'); div.className = 'msg user';
+  const av  = document.createElement('div'); av.className = 'm-av'; av.textContent = '👤';
+  const bub = document.createElement('div'); bub.className = 'm-bub';
+  bub.innerHTML = fmt(text);
+  div.appendChild(av); div.appendChild(bub);
+  c.insertBefore(div, typing);
+  c.scrollTop = c.scrollHeight;
+  history.push({ role: 'user', content: text });
+  /* Extract lead data ONLY from what the user types */
+  extractLeadData(text);
+}
+
+function fmt(t) {
+  return t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+}
+
+function showTyping() {
+  document.getElementById('typing').classList.add('show');
+  document.getElementById('msgs').scrollTop = 9999;
+}
+function hideTyping() { document.getElementById('typing').classList.remove('show'); }
+
+/* ══ AI CALL ══ */
+async function getReply(userMsg) {
+  showTyping();
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    let reply = '';
+    /* Only pass actual conversation messages — no system role leaking */
+    const msgs = history.map(m => ({ role: m.role, content: m.content }));
+
+    if (groqKey) {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 260,
+          temperature: 0.6,
+          messages: [{ role: 'system', content: buildPrompt() }, ...msgs]
+        })
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Groq ' + res.status); }
+      reply = (await res.json()).choices[0].message.content.trim();
+
+    } else if (geminiKey) {
+      const gemMsgs = msgs.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+      const body = {
+        systemInstruction: { parts: [{ text: buildPrompt() }] },
+        contents: gemMsgs.length > 0 ? gemMsgs : [{ role: 'user', parts: [{ text: userMsg }] }],
+        generationConfig: { maxOutputTokens: 260, temperature: 0.6 }
+      };
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Gemini ' + res.status); }
+      reply = (await res.json()).candidates[0].content.parts[0].text.trim();
+    } else {
+      throw new Error('no_key');
+    }
+
+    hideTyping();
+
+    /* Detect lead capture signal → show booking button */
+    if (!leadCaptured && reply.toLowerCase().includes('i have all your details noted')) {
+      leadCaptured = true;
+      addBotMsg(reply, makeBookingBtn());
+    } else {
+      addBotMsg(reply);
+    }
+
+    if (history.length === 4) setQR(['📍 What area are you in?', '🚨 It\'s urgent', '💰 Rough cost?']);
+
+  } catch (e) {
+    hideTyping();
+    let m = 'Something went wrong — please try again.';
+    if (e.message === 'no_key')
+      m = '⚙️ No API key found. Press **Ctrl+Shift+K** to add your free key.';
+    else if (e.message.includes('401') || e.message.toLowerCase().includes('invalid') || e.message.includes('API_KEY'))
+      m = '❌ API key rejected. Open settings (Ctrl+Shift+K) and check your key.';
+    else if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED'))
+      m = '⏳ Rate limit hit — wait about 60 seconds and try again.';
+    addBotMsg(m);
+  }
+  document.getElementById('sendBtn').disabled = false;
+}
+
+/* ══ EXTRACT LEAD DATA — only from USER messages ══
+   This is what fixed the "Aria" name bug.
+   We now call this ONLY in addUserMsg, not from bot replies. */
+function extractLeadData(userMsg) {
+  /* Name — only from user input, never from bot text */
+  if (!leadData.name) {
+    const m1 = userMsg.match(/(?:my name is|i(?:'m| am)|call me|it'?s|name'?s)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+    /* Also catch a lone capitalised word as a name reply */
+    const m2 = userMsg.trim().match(/^([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\.?$/);
+    if (m1) leadData.name = m1[1].trim();
+    else if (m2 && userMsg.trim().split(' ').length <= 3) leadData.name = m2[1].trim();
+  }
+
+  /* Phone */
+  if (!leadData.phone) {
+    const m = userMsg.match(/(\+?1?\s?[\(]?\d{3}[\)]?[\s\-\.]?\d{3}[\s\-\.]?\d{4})/);
+    if (m) leadData.phone = m[1];
+  }
+
+  /* Address — look for street number + street name patterns */
+  if (!leadData.address) {
+    const addrMatch = userMsg.match(/\d+\s+[A-Za-z0-9\s,\.#\-]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|blvd|boulevard|way|court|ct|circle|cir|place|pl|close|terrace|crescent|cres)[,\s\d]*/i);
+    if (addrMatch) {
+      leadData.address = userMsg.trim();
+    } else if (leadData.phone && !leadData.address && userMsg.trim().length > 6 && userMsg.trim().length < 90) {
+      /* If phone already captured and user sends a medium-length non-question message, treat as address */
+      const lc = userMsg.toLowerCase();
+      const notQuestion = !lc.includes('?') && !lc.match(/^(yes|no|ok|sure|thanks|great|hello|hi)\b/i);
+      if (notQuestion && !leadData.address) leadData.address = userMsg.trim();
+    }
+  }
+
+  /* Service / issue */
+  if (!leadData.issue && userMsg.length > 3) {
+    const l = userMsg.toLowerCase();
+    if (l.includes('leak') || l.includes('pipe') || l.includes('flood') || l.includes('drain') || l.includes('water') || l.includes('plumb')) {
+      leadData.service = kb.services ? bizType : 'Plumbing'; leadData.issue = userMsg;
+    } else if (l.includes('power') || l.includes('electric') || l.includes('circuit') || l.includes('outlet') || l.includes('wiring')) {
+      leadData.service = 'Electrical'; leadData.issue = userMsg;
+    } else if (l.includes('clean')) {
+      leadData.service = 'Cleaning'; leadData.issue = userMsg;
+    } else if (l.includes('lock') || l.includes('key') || l.includes('door')) {
+      leadData.service = 'Locksmith'; leadData.issue = userMsg;
+    } else if (!leadData.issue && userMsg.length > 8) {
+      leadData.service = bizType; leadData.issue = userMsg;
+    }
+  }
+}
+
+/* ══ BOOKING BUTTON ══ */
+function makeBookingBtn() {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:10px;';
+  const btn = document.createElement('button');
+  btn.style.cssText = 'background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 16px;font-family:Syne,sans-serif;font-weight:700;font-size:.79rem;cursor:pointer;width:100%;transition:opacity .2s;';
+  btn.textContent = '📅 Pick Appointment Slot →';
+  btn.onmouseenter = () => { btn.style.opacity = '.85'; };
+  btn.onmouseleave = () => { btn.style.opacity = '1'; };
+  btn.onclick = () => { openCalendar(); btn.textContent = '✓ Calendar opened'; btn.disabled = true; btn.style.opacity = '.5'; };
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+function sendMsg() {
+  const inp = document.getElementById('inp');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  if (!groqKey && !geminiKey) {
+    addBotMsg('⚙️ No API key. Press **Ctrl+Shift+K** to add your free key.');
+    return;
+  }
+  clearQR();
+  inp.value = ''; inp.style.height = 'auto';
+  addUserMsg(txt);
+  getReply(txt);
+}
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
+function grow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 80) + 'px'; }
+
+function resetChat() {
+  history = [];
+  leadData = { name:'', phone:'', address:'', service:'', issue:'' };
+  leadCaptured = false;
+  document.getElementById('msgs').innerHTML = '<div class="typing" id="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>';
+  clearQR();
+  setTimeout(greet, 300);
+}
+
+/* ══ CALENDAR ══ */
+function openCalendar() {
+  const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth();
+  selDate = null; selTime = null;
+  renderCal(); renderTimes(); updateConfBtn();
+  document.getElementById('calOverlay').classList.add('open');
+}
+function closeCalendar() { document.getElementById('calOverlay').classList.remove('open'); }
+
+function renderCal() {
+  const MO = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DA = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  document.getElementById('monthLabel').textContent = MO[calMonth] + ' ' + calYear;
+  const g = document.getElementById('calGrid'); g.innerHTML = '';
+  DA.forEach(d => { const h = document.createElement('div'); h.className = 'cal-day-head'; h.textContent = d; g.appendChild(h); });
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const total = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (let i = 0; i < first; i++) { const e = document.createElement('button'); e.className = 'cal-day empty'; g.appendChild(e); }
+  for (let d = 1; d <= total; d++) {
+    const btn = document.createElement('button'); btn.className = 'cal-day'; btn.textContent = d;
+    const td = new Date(calYear, calMonth, d);
+    if (td < today) { btn.classList.add('past'); }
+    if (td.toDateString() === today.toDateString()) btn.classList.add('today');
+    if (selDate && td.toDateString() === selDate.toDateString()) btn.classList.add('selected');
+    if (!(td < today)) btn.onclick = () => { selDate = td; selTime = null; renderCal(); renderTimes(); updateConfBtn(); };
+    g.appendChild(btn);
+  }
+}
+
+function renderTimes() {
+  const g = document.getElementById('timeGrid'); g.innerHTML = '';
+  TIMES.forEach(t => {
+    const btn = document.createElement('button'); btn.className = 'time-slot'; btn.textContent = t;
+    if (BOOKED.includes(t)) btn.classList.add('booked');
+    if (t === selTime) btn.classList.add('selected');
+    if (!BOOKED.includes(t)) btn.onclick = () => { selTime = t; renderTimes(); updateConfBtn(); };
+    g.appendChild(btn);
+  });
+}
+
+function updateConfBtn() {
+  const b = document.getElementById('calConfirmBtn');
+  b.disabled = !(selDate && selTime);
+  if (selDate && selTime) {
+    const ds = selDate.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    b.textContent = 'Confirm: ' + ds + ' at ' + selTime + ' →';
+  } else {
+    b.textContent = 'Confirm Appointment →';
+  }
+}
+function prevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCal(); }
+function nextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCal(); }
+
+function confirmBooking() {
+  if (!selDate || !selTime) return;
+  closeCalendar();
+
+  const ds    = selDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  /* Use collected lead data — never fall back to agent name */
+  const cName = leadData.name    || 'Customer';
+  const cPhone= leadData.phone   || 'Not provided';
+  const cAddr = leadData.address || '';
+  const svc   = leadData.service || bizType;
+
+  const card = document.createElement('div'); card.className = 'booking-card';
+  const addrRow = cAddr ? `<div class="bc-row"><span class="bc-ic">📍</span><span class="bc-txt">${cAddr}</span></div>` : '';
+  card.innerHTML =
+    `<div class="bc-title">✅ Appointment Confirmed!</div>
+     <div class="bc-row"><span class="bc-ic">📅</span><span class="bc-txt">${ds} at ${selTime}</span></div>
+     <div class="bc-row"><span class="bc-ic">🔧</span><span class="bc-txt">${svc}</span></div>
+     <div class="bc-row"><span class="bc-ic">👤</span><span class="bc-txt">${cName}</span></div>
+     <div class="bc-row"><span class="bc-ic">📞</span><span class="bc-txt">${cPhone}</span></div>
+     ${addrRow}
+     <div class="bc-note">📧 Confirmation sent to the team. They'll contact you 30 min before your slot.</div>`;
+
+  addBotMsg('Your appointment is all booked! 🎉', card);
+  setTimeout(() => showEmailNotif(cName, cPhone, cAddr, svc, ds, selTime), 1200);
+}
+
+/* ══ EMAIL NOTIFICATION ══ */
+function showEmailNotif(name, phone, addr, svc, date, time) {
+  document.getElementById('enToEmail').textContent = ownerEmail;
+  document.getElementById('enTo').textContent      = ownerEmail;
+  /* Use customer name in subject, not agent name */
+  document.getElementById('enSubject').textContent = 'New Booking — ' + (name !== 'Customer' ? name : svc);
+
+  const iss      = leadData.issue ? `<br><strong>Issue:</strong> ${leadData.issue.substring(0, 90)}` : '';
+  const addrLine = addr ? `<br><strong>Address:</strong> ${addr}` : '';
+  document.getElementById('enSummary').innerHTML =
+    `New appointment via AI agent on <strong>${bizName}</strong>.<br><br>` +
+    `<strong>Customer:</strong> ${name}<br>` +
+    `<strong>Phone:</strong> ${phone}${addrLine}<br>` +
+    `<strong>Service:</strong> ${svc}${iss}<br>` +
+    `<strong>Date:</strong> ${date} at ${time}<br><br>` +
+    `<em style="color:var(--muted2);font-size:.69rem">Sent automatically by your AI booking agent.</em>`;
+
+  document.getElementById('emailNotif').classList.add('show');
+  showToast('📧 Email sent to ' + ownerEmail);
+  setTimeout(() => document.getElementById('emailNotif').classList.remove('show'), 12000);
+}
+function closeEmail() { document.getElementById('emailNotif').classList.remove('show'); }
+
+/* ══ TOAST ══ */
+function showToast(msg) {
+  document.getElementById('toastTxt').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+/* ══ AUTO-INIT if keys hardcoded ══ */
+window.addEventListener('load', () => {
+  if (GROQ_KEY_DEFAULT || GEMINI_KEY_DEFAULT) {
+    document.getElementById('chatBtn').style.display = 'flex';
+  }
+});
+</script>
+</body>
+</html>
