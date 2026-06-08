@@ -520,9 +520,11 @@ let extraRules = '';
 
 /* Lead data — collected during chat */
 let history      = [];
-let leadData     = { name:'', phone:'', address:'', service:'', issue:'' };
+let leadData     = { name:'', phone:'', email:'', address:'', service:'', issue:'', urgent:false };
 let leadCaptured = false;
 let pendingField = null; // tracks what the bot most recently asked for
+
+const URGENT_KEYWORDS = ['flood','flooding','burst pipe','no power','no electricity','locked out','gas leak','fire','smoke','overflowing','sewage','emergency','urgent','asap','right now','immediately','can\'t wait','cannot wait'];
 
 /* KB populated from setup popup */
 let kb = { phone:'', area:'', hours:'', services:'', pricing:'', faqs:'' };
@@ -547,7 +549,19 @@ function detectPendingField(botText) {
   const lc = botText.toLowerCase();
   if (lc.match(/\bname\b/)) pendingField = 'name';
   else if (lc.match(/\bphone\b|\bnumber\b|\breach you\b|\bcontact\b/)) pendingField = 'phone';
+  else if (lc.match(/\bemail\b/)) pendingField = 'email';
   else if (lc.match(/\baddress\b|\bwhere\b.*?(send|come|service|team)\b|\bservice address\b|\blocation\b/)) pendingField = 'address';
+}
+
+/* ══ URGENCY DETECTION ══ */
+function detectUrgency(text) {
+  if (leadData.urgent) return;
+  const lc = text.toLowerCase();
+  if (URGENT_KEYWORDS.some(k => lc.includes(k))) {
+    leadData.urgent = true;
+    const statusEl = document.querySelector('.ch-status');
+    if (statusEl) statusEl.innerHTML = '<span class="s-dot" style="background:var(--red)"></span><span style="color:var(--red)">🚨 Urgent — Priority Response</span>';
+  }
 }
 
 /* ══ SYSTEM PROMPT ══ */
@@ -565,13 +579,14 @@ function buildPrompt() {
   /* Tell the AI exactly what has and hasn't been collected yet */
   const hasName    = !!leadData.name;
   const hasPhone   = !!leadData.phone;
+  const emailDone  = leadData.email !== '';
   const hasAddress = !!leadData.address;
   const allCollected = hasName && hasPhone && hasAddress;
 
   return `You are Aria, a friendly and helpful booking assistant for "${bizName}", a ${bizType} business. You are warm, patient, and conversational — like a real receptionist who genuinely cares about the customer.
 
-${kbBlock}== YOUR GOAL ==
-Understand what the customer needs, answer their questions helpfully, and gently collect their name, phone number, and service address so the team can follow up. Once you have all three, offer to book an appointment.
+${leadData.urgent ? '== ⚠️ URGENT REQUEST ==\nThis customer has flagged an emergency. Lead with genuine concern and urgency. Move quickly — do not linger on small talk.\n\n' : ''}${kbBlock}== YOUR GOAL ==
+Understand what the customer needs, answer their questions helpfully, and gently collect their name, phone number, email (optional), and service address so the team can follow up. Once you have name, phone, and address, offer to book an appointment.
 
 == HOW TO HANDLE QUESTIONS ==
 If the customer asks a question at any point — about pricing, services, availability, anything — answer it first using the knowledge base above. Then continue collecting the missing details naturally. Never ignore a question just to collect data.
@@ -579,19 +594,22 @@ If the customer asks a question at any point — about pricing, services, availa
 == INFORMATION COLLECTION — current status ==
 Name collected: ${hasName ? 'YES — ' + leadData.name : 'NO — still needed'}
 Phone collected: ${hasPhone ? 'YES — ' + leadData.phone : 'NO — still needed'}
+Email collected: ${emailDone ? 'YES — ' + (leadData.email === 'skipped' ? 'customer skipped' : leadData.email) : 'NO — optional, ask after phone'}
 Address collected: ${hasAddress ? 'YES — ' + leadData.address : 'NO — still needed'}
 
 Your next step based on what is missing:
-${!hasName ? '→ You still need their NAME. After answering any question they have, ask for their first name.' : ''}
-${hasName && !hasPhone ? '→ You have their name. You still need their PHONE NUMBER. After answering any question, ask for their best number.' : ''}
-${hasName && hasPhone && !hasAddress ? '→ You have name and phone. You still need their SERVICE ADDRESS. After answering any question, ask where the team should come.' : ''}
-${allCollected ? '→ You have all three. Write the phrase "I have all your details noted." and offer to pull up the calendar.' : ''}
+${!hasName ? '→ Ask for their NAME.' : ''}
+${hasName && !hasPhone ? '→ Ask for their PHONE NUMBER.' : ''}
+${hasName && hasPhone && !emailDone ? '→ Ask for their EMAIL (optional). Say exactly: "What\'s your email address? It\'s optional — just say skip if you\'d prefer not to share." ' : ''}
+${hasName && hasPhone && emailDone && !hasAddress ? '→ Ask for their SERVICE ADDRESS.' : ''}
+${allCollected ? '→ You have all required details. Write the phrase "I have all your details noted." and offer to pull up the calendar.' : ''}
 
 == IMPORTANT RULES FOR DATA COLLECTION ==
-- NEVER say "I have all your details noted" unless all three (name, phone, address) are marked YES above.
+- NEVER say "I have all your details noted" unless name, phone, and address are all marked YES above.
 - If the customer ignores a question and asks something else, answer their question, then politely re-ask the missing detail at the end of your reply.
-- Never skip ahead. Always follow the order: name → phone → address → booking.
+- Never skip ahead. Always follow the order: name → phone → email → address → booking.
 - If a customer gives their phone or address without being asked, acknowledge it and move on to the next missing item.
+- If the customer says "skip" when asked for email, acknowledge it and move to address.
 
 == TONE AND STYLE ==
 - Be warm and natural, like a friendly local business receptionist.
@@ -675,6 +693,58 @@ document.addEventListener('keydown', e => {
 });
 
 
+/* ══ SESSION PERSISTENCE ══ */
+function saveSession() {
+  try {
+    localStorage.setItem('chatSession', JSON.stringify({
+      history, leadData, leadCaptured, pendingField,
+      bizName, bizType, kb, ownerEmail, extraRules,
+      timestamp: Date.now()
+    }));
+  } catch(e) {}
+}
+
+function replayHistory(hist) {
+  const c = document.getElementById('msgs');
+  const typing = document.getElementById('typing');
+  hist.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg ' + (m.role === 'assistant' ? 'bot' : 'user');
+    const av = document.createElement('div'); av.className = 'm-av';
+    av.textContent = m.role === 'assistant' ? '🤖' : '👤';
+    const bub = document.createElement('div'); bub.className = 'm-bub';
+    bub.innerHTML = fmt(m.content);
+    div.appendChild(av); div.appendChild(bub);
+    c.insertBefore(div, typing);
+  });
+  c.scrollTop = c.scrollHeight;
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem('chatSession');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (Date.now() - s.timestamp > 86400000) { localStorage.removeItem('chatSession'); return false; }
+    bizName = s.bizName || bizName;
+    bizType = s.bizType || bizType;
+    kb = s.kb || kb;
+    ownerEmail = s.ownerEmail || ownerEmail;
+    extraRules = s.extraRules || extraRules;
+    leadData = s.leadData || leadData;
+    leadCaptured = s.leadCaptured || false;
+    pendingField = s.pendingField || null;
+    history = s.history || [];
+    document.getElementById('agentLabel').textContent = bizName + ' AI';
+    document.getElementById('chatBtn').style.display = 'flex';
+    replayHistory(history);
+    if (leadData.urgent) detectUrgency('urgent'); // restore UI state
+    document.getElementById('chatWin').classList.add('open');
+    document.getElementById('chatBtn').classList.add('open');
+    return true;
+  } catch(e) { return false; }
+}
+
 /* ══ CHAT ══ */
 function toggleChat() {
   document.getElementById('chatWin').classList.toggle('open');
@@ -713,6 +783,7 @@ function addBotMsg(text, extra) {
   c.scrollTop = c.scrollHeight;
   history.push({ role: 'assistant', content: text });
   detectPendingField(text);
+  saveSession();
 }
 
 function addUserMsg(text) {
@@ -726,8 +797,9 @@ function addUserMsg(text) {
   c.insertBefore(div, typing);
   c.scrollTop = c.scrollHeight;
   history.push({ role: 'user', content: text });
-  /* Extract lead data ONLY from what the user types */
   extractLeadData(text);
+  detectUrgency(text);
+  saveSession();
 }
 
 function fmt(t) {
@@ -869,6 +941,20 @@ function extractLeadData(userMsg) {
     }
   }
 
+  /* Email — regex unambiguous like phone, always check; also handle 'skip' */
+  if (!leadData.email) {
+    if (pendingField === 'email' && /^skip$/i.test(trimmed)) {
+      leadData.email = 'skipped';
+      pendingField = null;
+    } else {
+      const m = trimmed.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+      if (m) {
+        leadData.email = m[0];
+        if (pendingField === 'email') pendingField = null;
+      }
+    }
+  }
+
   /* Address — only capture if bot just asked for address AND reply looks like an address */
   if (!leadData.address && pendingField === 'address' && !isQuestion && looksLikeAddress(trimmed)) {
     leadData.address = trimmed;
@@ -920,9 +1006,11 @@ function grow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scro
 
 function resetChat() {
   history = [];
-  leadData = { name:'', phone:'', address:'', service:'', issue:'' };
+  leadData = { name:'', phone:'', email:'', address:'', service:'', issue:'', urgent:false };
   leadCaptured = false;
   pendingField = null;
+  localStorage.removeItem('chatSession');
+  document.querySelector('.ch-status').innerHTML = '<span class="s-dot"></span>Online — Ready to help';
   document.getElementById('msgs').innerHTML = '<div class="typing" id="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>';
   clearQR();
   setTimeout(greet, 300);
@@ -988,39 +1076,46 @@ function confirmBooking() {
 
   const ds    = selDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
   /* Use collected lead data — never fall back to agent name */
-  const cName = leadData.name    || 'Customer';
-  const cPhone= leadData.phone   || 'Not provided';
-  const cAddr = leadData.address || '';
-  const svc   = leadData.service || bizType;
+  const cName  = leadData.name    || 'Customer';
+  const cPhone = leadData.phone   || 'Not provided';
+  const cEmail = leadData.email && leadData.email !== 'skipped' ? leadData.email : '';
+  const cAddr  = leadData.address || '';
+  const svc    = leadData.service || bizType;
 
   const card = document.createElement('div'); card.className = 'booking-card';
-  const addrRow = cAddr ? `<div class="bc-row"><span class="bc-ic">📍</span><span class="bc-txt">${cAddr}</span></div>` : '';
+  const addrRow  = cAddr  ? `<div class="bc-row"><span class="bc-ic">📍</span><span class="bc-txt">${cAddr}</span></div>`  : '';
+  const emailRow = cEmail ? `<div class="bc-row"><span class="bc-ic">✉️</span><span class="bc-txt">${cEmail}</span></div>` : '';
   card.innerHTML =
     `<div class="bc-title">✅ Appointment Confirmed!</div>
      <div class="bc-row"><span class="bc-ic">📅</span><span class="bc-txt">${ds} at ${selTime}</span></div>
      <div class="bc-row"><span class="bc-ic">🔧</span><span class="bc-txt">${svc}</span></div>
      <div class="bc-row"><span class="bc-ic">👤</span><span class="bc-txt">${cName}</span></div>
      <div class="bc-row"><span class="bc-ic">📞</span><span class="bc-txt">${cPhone}</span></div>
-     ${addrRow}
+     ${emailRow}${addrRow}
      <div class="bc-note">📧 Confirmation sent to the team. They'll contact you 30 min before your slot.</div>`;
 
   addBotMsg('Your appointment is all booked! 🎉', card);
-  setTimeout(() => showEmailNotif(cName, cPhone, cAddr, svc, ds, selTime), 1200);
+  setTimeout(() => showEmailNotif(cName, cPhone, cEmail, cAddr, svc, ds, selTime), 1200);
 }
 
 /* ══ EMAIL NOTIFICATION ══ */
-function showEmailNotif(name, phone, addr, svc, date, time) {
+function showEmailNotif(name, phone, email, addr, svc, date, time) {
   document.getElementById('enToEmail').textContent = ownerEmail;
   document.getElementById('enTo').textContent      = ownerEmail;
-  /* Use customer name in subject, not agent name */
-  document.getElementById('enSubject').textContent = 'New Booking — ' + (name !== 'Customer' ? name : svc);
+  const urgentPrefix = leadData.urgent ? '⚠️ URGENT — ' : '';
+  document.getElementById('enSubject').textContent = urgentPrefix + 'New Booking — ' + (name !== 'Customer' ? name : svc);
 
-  const iss      = leadData.issue ? `<br><strong>Issue:</strong> ${leadData.issue.substring(0, 90)}` : '';
-  const addrLine = addr ? `<br><strong>Address:</strong> ${addr}` : '';
+  const iss       = leadData.issue ? `<br><strong>Issue:</strong> ${leadData.issue.substring(0, 90)}` : '';
+  const addrLine  = addr  ? `<br><strong>Address:</strong> ${addr}`   : '';
+  const emailLine = email ? `<br><strong>Email:</strong> ${email}`     : '';
+  const urgentBanner = leadData.urgent
+    ? `<div style="background:rgba(255,92,114,.12);border:1px solid rgba(255,92,114,.25);border-radius:6px;padding:7px 10px;margin-bottom:10px;font-size:.74rem;color:var(--red);font-weight:600;">🚨 URGENT — Customer flagged an emergency</div>`
+    : '';
   document.getElementById('enSummary').innerHTML =
+    urgentBanner +
     `New appointment via AI agent on <strong>${bizName}</strong>.<br><br>` +
     `<strong>Customer:</strong> ${name}<br>` +
-    `<strong>Phone:</strong> ${phone}${addrLine}<br>` +
+    `<strong>Phone:</strong> ${phone}${emailLine}${addrLine}<br>` +
     `<strong>Service:</strong> ${svc}${iss}<br>` +
     `<strong>Date:</strong> ${date} at ${time}<br><br>` +
     `<em style="color:var(--muted2);font-size:.69rem">Sent automatically by your AI booking agent.</em>`;
@@ -1044,7 +1139,9 @@ function showToast(msg) {
    On Vercel: proxy handles the key (no local key needed).
    Local dev: set GROQ_KEY_DEFAULT or GEMINI_KEY_DEFAULT above. ══ */
 window.addEventListener('load', () => {
-  document.getElementById('chatBtn').style.display = 'flex';
+  if (!loadSession()) {
+    document.getElementById('chatBtn').style.display = 'flex';
+  }
 });
 </script>
 </body>
