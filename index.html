@@ -418,8 +418,6 @@ A: Usually within 60–90 minutes for emergencies." style="min-height:90px"></te
   </div>
 </div>
 
-<!-- SHORTCUT HINT -->
-<div class="sc-hint" id="scHint">⚙️ Developer settings: Ctrl+Shift+K</div>
 
 <!-- CALENDAR -->
 <div class="cal-overlay" id="calOverlay">
@@ -676,12 +674,6 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'K') { e.preventDefault(); openAdmin(); }
 });
 
-/* Show hint after 3s */
-setTimeout(() => {
-  const h = document.getElementById('scHint');
-  h.classList.add('show');
-  setTimeout(() => h.classList.remove('show'), 4000);
-}, 3000);
 
 /* ══ CHAT ══ */
 function toggleChat() {
