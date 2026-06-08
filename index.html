@@ -524,6 +524,7 @@ let extraRules = '';
 let history      = [];
 let leadData     = { name:'', phone:'', address:'', service:'', issue:'' };
 let leadCaptured = false;
+let pendingField = null; // tracks what the bot most recently asked for
 
 /* KB populated from setup popup */
 let kb = { phone:'', area:'', hours:'', services:'', pricing:'', faqs:'' };
@@ -532,6 +533,24 @@ let kb = { phone:'', area:'', hours:'', services:'', pricing:'', faqs:'' };
 let calYear, calMonth, selDate=null, selTime=null;
 const TIMES  = ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
 const BOOKED = ['9:00 AM','1:00 PM'];
+
+/* ══ ADDRESS VALIDATOR ══ */
+function looksLikeAddress(text) {
+  if (/\d+\s+\w/.test(text)) return true; // number + word (123 Main)
+  if (/\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|blvd|boulevard|way|court|ct|circle|cir|place|pl|apt|apartment|suite|unit|floor|building|crescent|terrace)\b/i.test(text)) return true;
+  if (/\b\d{5}\b/.test(text)) return true; // zip code
+  if (/[A-Za-z]{2,},?\s+[A-Z]{2}\b/.test(text)) return true; // City, ST
+  return false;
+}
+
+/* ══ DETECT WHAT BOT JUST ASKED FOR ══ */
+function detectPendingField(botText) {
+  if (!botText.includes('?')) return;
+  const lc = botText.toLowerCase();
+  if (lc.match(/\bname\b/)) pendingField = 'name';
+  else if (lc.match(/\bphone\b|\bnumber\b|\breach you\b|\bcontact\b/)) pendingField = 'phone';
+  else if (lc.match(/\baddress\b|\bwhere\b.*?(send|come|service|team)\b|\bservice address\b|\blocation\b/)) pendingField = 'address';
+}
 
 /* ══ SYSTEM PROMPT ══ */
 function buildPrompt() {
@@ -588,7 +607,13 @@ ${allCollected ? '→ You have all three. Write the phrase "I have all your deta
 == ANTI-HALLUCINATION RULES ==
 - Only answer from the knowledge base above. Never invent prices, times, or details.
 - If unsure, say "I'll have someone from the team confirm that when they call you."
-- If asked about a service not listed, say "Let me get someone to call you about that — they'll have the full details."`;
+- If asked about a service not listed, say "Let me get someone to call you about that — they'll have the full details."
+
+== STRICT DATA COLLECTION RULES ==
+- NEVER say "I have your name", "I've noted your address", "I have your details", or any phrase claiming you collected data unless the status above shows YES for that field.
+- NEVER summarize what you have or haven't collected. Just move to the next missing field naturally.
+- If the customer's reply does not clearly answer what you asked, answer their question first, then re-ask the same field at the end.
+- Never assume you collected something. Only trust the YES/NO status shown above.`;
 }
 
 /* ══ SETUP POPUP ══ */
@@ -695,6 +720,7 @@ function addBotMsg(text, extra) {
   c.insertBefore(div, typing);
   c.scrollTop = c.scrollHeight;
   history.push({ role: 'assistant', content: text });
+  detectPendingField(text);
 }
 
 function addUserMsg(text) {
@@ -759,7 +785,7 @@ async function getReply(userMsg) {
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           max_tokens: 260,
-          temperature: 0.6,
+          temperature: 0.2,
           messages: [{ role: 'system', content: buildPrompt() }, ...msgs]
         })
       });
@@ -780,7 +806,7 @@ async function getReply(userMsg) {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: buildPrompt() }] },
             contents: gemMsgs.length > 0 ? gemMsgs : [{ role: 'user', parts: [{ text: userMsg }] }],
-            generationConfig: { maxOutputTokens: 260, temperature: 0.6 }
+            generationConfig: { maxOutputTokens: 260, temperature: 0.2 }
           })
         }
       );
@@ -830,51 +856,46 @@ async function getReply(userMsg) {
   document.getElementById('sendBtn').disabled = false;
 }
 
-/* ══ EXTRACT LEAD DATA — only from USER messages ══
-   This is what fixed the "Aria" name bug.
-   We now call this ONLY in addUserMsg, not from bot replies. */
+/* ══ EXTRACT LEAD DATA — only from USER messages ══ */
 function extractLeadData(userMsg) {
-  /* Name — only from user input, never from bot text */
-  if (!leadData.name) {
-    const m1 = userMsg.match(/(?:my name is|i(?:'m| am)|call me|it'?s|name'?s)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
-    /* Also catch a lone capitalised word as a name reply */
-    const m2 = userMsg.trim().match(/^([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\.?$/);
-    if (m1) leadData.name = m1[1].trim();
-    else if (m2 && userMsg.trim().split(' ').length <= 3) leadData.name = m2[1].trim();
+  const trimmed = userMsg.trim();
+  const isQuestion = trimmed.includes('?') ||
+    /^(what|how|when|where|why|can|do|is|are|will|would|could|should|have|has|did)\b/i.test(trimmed);
+
+  /* Name — only capture if bot just asked for name and user didn't reply with a question */
+  if (!leadData.name && pendingField === 'name' && !isQuestion) {
+    leadData.name = trimmed.split(/\s+/).slice(0, 3).join(' ');
+    pendingField = null;
   }
 
-  /* Phone */
+  /* Phone — regex is unambiguous, always check regardless of pendingField */
   if (!leadData.phone) {
-    const m = userMsg.match(/(\+?1?\s?[\(]?\d{3}[\)]?[\s\-\.]?\d{3}[\s\-\.]?\d{4})/);
-    if (m) leadData.phone = m[1];
-  }
-
-  /* Address — look for street number + street name patterns */
-  if (!leadData.address) {
-    const addrMatch = userMsg.match(/\d+\s+[A-Za-z0-9\s,\.#\-]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|blvd|boulevard|way|court|ct|circle|cir|place|pl|close|terrace|crescent|cres)[,\s\d]*/i);
-    if (addrMatch) {
-      leadData.address = userMsg.trim();
-    } else if (leadData.phone && !leadData.address && userMsg.trim().length > 6 && userMsg.trim().length < 90) {
-      /* If phone already captured and user sends a medium-length non-question message, treat as address */
-      const lc = userMsg.toLowerCase();
-      const notQuestion = !lc.includes('?') && !lc.match(/^(yes|no|ok|sure|thanks|great|hello|hi)\b/i);
-      if (notQuestion && !leadData.address) leadData.address = userMsg.trim();
+    const m = trimmed.match(/(\+?1?\s?[\(]?\d{3}[\)]?[\s\-\.]?\d{3}[\s\-\.]?\d{4})/);
+    if (m) {
+      leadData.phone = m[1];
+      if (pendingField === 'phone') pendingField = null;
     }
   }
 
+  /* Address — only capture if bot just asked for address AND reply looks like an address */
+  if (!leadData.address && pendingField === 'address' && !isQuestion && looksLikeAddress(trimmed)) {
+    leadData.address = trimmed;
+    pendingField = null;
+  }
+
   /* Service / issue */
-  if (!leadData.issue && userMsg.length > 3) {
-    const l = userMsg.toLowerCase();
+  if (!leadData.issue && trimmed.length > 3) {
+    const l = trimmed.toLowerCase();
     if (l.includes('leak') || l.includes('pipe') || l.includes('flood') || l.includes('drain') || l.includes('water') || l.includes('plumb')) {
-      leadData.service = kb.services ? bizType : 'Plumbing'; leadData.issue = userMsg;
+      leadData.service = kb.services ? bizType : 'Plumbing'; leadData.issue = trimmed;
     } else if (l.includes('power') || l.includes('electric') || l.includes('circuit') || l.includes('outlet') || l.includes('wiring')) {
-      leadData.service = 'Electrical'; leadData.issue = userMsg;
+      leadData.service = 'Electrical'; leadData.issue = trimmed;
     } else if (l.includes('clean')) {
-      leadData.service = 'Cleaning'; leadData.issue = userMsg;
+      leadData.service = 'Cleaning'; leadData.issue = trimmed;
     } else if (l.includes('lock') || l.includes('key') || l.includes('door')) {
-      leadData.service = 'Locksmith'; leadData.issue = userMsg;
-    } else if (!leadData.issue && userMsg.length > 8) {
-      leadData.service = bizType; leadData.issue = userMsg;
+      leadData.service = 'Locksmith'; leadData.issue = trimmed;
+    } else if (!leadData.issue && trimmed.length > 8) {
+      leadData.service = bizType; leadData.issue = trimmed;
     }
   }
 }
@@ -909,6 +930,7 @@ function resetChat() {
   history = [];
   leadData = { name:'', phone:'', address:'', service:'', issue:'' };
   leadCaptured = false;
+  pendingField = null;
   document.getElementById('msgs').innerHTML = '<div class="typing" id="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>';
   clearQR();
   setTimeout(greet, 300);

@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           max_tokens: 260,
-          temperature: 0.6,
+          temperature: 0.2,
           messages: [{ role: 'system', content: systemPrompt }, ...messages]
         })
       });
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: gemMsgs,
-            generationConfig: { maxOutputTokens: 260, temperature: 0.6 }
+            generationConfig: { maxOutputTokens: 260, temperature: 0.2 }
           })
         }
       );
